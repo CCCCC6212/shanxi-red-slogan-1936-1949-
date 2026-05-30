@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>山西红色标语（1936-1949）不可移动革命文物数据库</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Segoe UI','Roboto',sans-serif;background:#fef7ec;color:#2c1e12;height:100vh;overflow:hidden;}
+        .app-container{display:flex;width:100%;height:100%;flex-direction:row;}
+        .sidebar{width:380px;background:#fffcf0;border-right:1px solid #e2cfb0;display:flex;flex-direction:column;overflow-y:auto;}
+        .brand{background:#8b2c1d;color:#ffefcf;padding:1rem;text-align:center;border-bottom:3px solid #d6452a;}
+        .brand h1{font-size:1.2rem;line-height:1.3;margin-bottom:4px;}
+        .project-info{background:#631e12;margin-top:8px;padding:6px 8px;border-radius:28px;font-size:0.65rem;display:inline-block;}
+        .filter-bar{padding:1rem;background:#fdf3e2;border-bottom:1px solid #eedbba;display:flex;flex-wrap:wrap;gap:12px;}
+        .filter-group{flex:1;min-width:100px;}
+        .filter-group label{font-size:0.7rem;font-weight:bold;color:#8b5a2b;}
+        .filter-group input{width:100%;padding:6px 8px;border:1px solid #dcba8b;border-radius:24px;}
+        button{background:#9b2c1d;border:none;color:white;padding:5px 14px;border-radius:30px;cursor:pointer;}
+        button.secondary{background:#bc784a;}
+        .stat-num{background:#ecd9bf;border-radius:40px;padding:4px 12px;font-size:0.7rem;}
+        .slogan-list{flex:1;overflow-y:auto;padding:0.8rem;}
+        .slogan-card{background:white;border-radius:20px;margin-bottom:12px;padding:12px 14px;border-left:5px solid #c03b2a;cursor:pointer;}
+        .slogan-card:hover{transform:translateX(4px);background:#fff7ef;}
+        .slogan-title{font-weight:800;display:flex;justify-content:space-between;}
+        .slogan-year-badge{background:#f1e1cf;border-radius:30px;padding:2px 8px;font-size:0.65rem;}
+        .slogan-content{font-size:0.8rem;margin:8px 0;line-height:1.4;}
+        .slogan-location{font-size:0.7rem;color:#a1622b;}
+        .map-container{flex:1;position:relative;}
+        #map{height:100%;width:100%;}
+        .gis-controls{position:absolute;bottom:20px;right:20px;background:rgba(255,248,235,0.95);backdrop-filter:blur(6px);padding:8px 12px;border-radius:36px;z-index:400;display:flex;gap:8px;}
+        .leaflet-control-attribution{display:none!important;}
+        footer{font-size:0.65rem;padding:8px;text-align:center;border-top:1px solid #eedbba;background:#fffcf0;}
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="sidebar">
+        <div class="brand">
+            <h1><i class="fas fa-landmark"></i> 山西红色标语（1936—1949）不可移动革命文物数据库</h1>
+            <div class="project-info"><i class="fas fa-graduation-cap"></i> 山西省研究生学术创新项目 山西红色标语研究搜集、整理与研究（1936-1949） 项目编号：2025XS178</div>
+        </div>
+        <div class="filter-bar">
+            <div class="filter-group"><label>起始年份</label><input type="number" id="yearStart" value="1936" min="1936" max="1949"></div>
+            <div class="filter-group"><label>终止年份</label><input type="number" id="yearEnd" value="1949" min="1936" max="1949"></div>
+            <div class="filter-group"><label>关键词/地点</label><input type="text" id="keywordSearch" placeholder="标语 / 地名"></div>
+            <button id="applyFilterBtn">筛选</button>
+            <button id="resetFilterBtn" class="secondary">重置</button>
+        </div>
+        <div style="padding:0 1rem;display:flex;justify-content:space-between;"><span class="stat-num" id="resultCount">0 条标语</span><span>点击卡片或标记</span></div>
+        <div class="slogan-list" id="sloganListContainer"><div class="empty-msg">载入中...</div></div>
+        <footer><i class="fas fa-database"></i> 数据基于田野调查 · 支持GIS图层叠加</footer>
+    </div>
+    <div class="map-container"><div id="map"></div><div class="gis-controls"><button id="uploadGeoJsonBtn">上传 GIS (GeoJSON)</button><button id="clearExtraLayerBtn">清除图层</button></div></div>
+</div>
+<script>
+function dmsToDecimal(s){if(!s)return null;let m=s.match(/(\d+)°(\d+)'([\d\.]+)″?/);if(m)return parseFloat(m[1])+parseFloat(m[2])/60+parseFloat(m[3])/3600;let n=parseFloat(s);return isNaN(n)?null:n;}
+const rawData=[{name:"反日反蒋的宣传动员标语",location:"吕梁市交口县康城镇支进村南洼自然村中",yearRaw:"1936年",content:"工农商学兵，起来打日本，打倒蒋匪",lngStr:"111°18'53.4″",latStr:"36°47'54″"},{name:"打倒土豪劣绅的动员标语",location:"临汾市洪洞县万安镇韩家庄",yearRaw:"1936年",content:"打倒土豪劣绅",lngStr:"111°33'00.8″",latStr:"36°18'11.7″"},{name:"八路军总政治部旧址动员群众坚持抗战标语",location:"长治市潞州区西白兔镇中村",yearRaw:"1938年",content:"坚持华北抗战",lngStr:"113°01'33.0″",latStr:"36°25'09.0″"},{name:"抗日军政大学第一分校旧址关于群众动员的标语",location:"长治市武乡县蟠龙镇大陌村",yearRaw:"1939年",content:"1、提高文化技术 加强政治 掌握技术\n2、团结紧张活泼 严肃我们作风\n3、培养技术人才 支援前线胜利\n4、决心耐心细心 认真才能学得东西",lngStr:"113°10'55.9″",latStr:"36°46'40.7″"},{name:"农村黑板报",location:"长治市武乡县蟠龙镇烟里村",yearRaw:"1939年",content:"黑板报 (宣传阵地)",lngStr:"113°12'56.38″",latStr:"36°45'37.36″"},{name:"土地庙中宣传标语",location:"晋城市阳城县润城镇大夫街村",yearRaw:"1939年",content:"团结、紧张、严肃、活泼",lngStr:"112°29'35.8″",latStr:"35°33'04.1″"},{name:"动员广大群众积极争取民族独立的标语",location:"吕梁市交口县桃红坡镇西宋庄村北王化民院内",yearRaw:"1939年",content:"1、复兴民族\n2、不作俘虏是民族的灵魂\n3、瞄准打死不退是铁军的坚定必成功的信念\n4、不做俘虏，克服困难",lngStr:"111°25'11.2″",latStr:"37°02'30.2″"},{name:"关帝庙中的抗战标语",location:"长治市武乡县蟠龙东庄三角坡村",yearRaw:"1940年",content:"肃清亲日派",lngStr:"113°10'15.0″",latStr:"36°49'23.6″"},{name:"面向日军部队中的朝鲜籍兵的动员标语",location:"晋中市左权县麻田镇云头底村",yearRaw:"1940年",content:"1、被强制拉来当兵的同胞们，由八路军的地方就有朝鲜义勇军，把枪口朝向天空\n2、让我们自由使用朝鲜语！\n3、打死倭寇长官，扛起枪来找朝鲜义勇军！",lngStr:"113°30'33.2″",latStr:"36°46'06.2″"},{name:"面向日本军队的反战标语",location:"晋中市左权县拐儿镇板峪村",yearRaw:"1940年",content:"珍爱生命，不要为日本军阀牺牲，不要烧房",lngStr:"113°37'94″",latStr:"37°08'27″"},{name:"老爷庙中的抗日标语",location:"大同市灵丘县赵北乡王城庄村中",yearRaw:"1942年",content:"1、打倒日本帝国主义！\n2、中华民族解放万岁！",lngStr:"114°00'55.9″",latStr:"39°33'59.7″"},{name:"龙王庙中的抗战壁画",location:"长治市黎城县黎侯镇赵家山村龙王庙正殿",yearRaw:"1944年",content:"1、毛泽东、朱德以及彭德怀的壁画像\n2、开展自学运动提高军事技术\n3、西井山日寇大败壁画\n4、欲求生产增加必须多积粪土壁画\n5、打通思想在政治上前进一步\n6、春耕间民兵自习、练枪的壁画",lngStr:"113°22'32.6″",latStr:"36°31'21.5″"},{name:"宣传中国共产党土地政策的标语",location:"临汾市洪洞县苏堡镇北铁沟村",yearRaw:"1947年",content:"《中国土地法大纲》、《晋冀鲁豫边区政府颁布施行<中国土地法大纲>补充办法》",lngStr:"111°50'45.4″",latStr:"36°13'51.9″"},{name:"华北野战军十八兵团前线指挥部旧址前的毛主席语录",location:"晋中市榆次区长凝镇相立村",yearRaw:"1948年",content:"毛泽东语录：“人民解放战争是人民的战争，一切反动派都是纸老虎。”",lngStr:"112°55'37.8″",latStr:"37°37'04.5″"},{name:"东赵乡李墕村中涂写的毛主席语录",location:"晋中市榆次区东赵乡李墕村",yearRaw:"1948年",content:"毛泽东语录：“没有调查就没有发言权，为人民服务。”",lngStr:"112°51'01.2″",latStr:"37°41'41.9″"},{name:"拥护毛主席、共产党以及宣传军事原则的标语",location:"吕梁市交城县米家庄村",yearRaw:"1948年",content:"1、高举毛泽东思想旗帜\n2、跟着共产党走\n3、注意礼节\n4、读书是学习，使用也是学习，而且是更重要的学习。——毛泽东\n5、听毛主席的话\n6、中国共产党是全中国人民的领导核心，没有这样一个核心，社会主义事业就不能胜利。\n7、十大军事原则（节录）",lngStr:"111°55'25″",latStr:"37°33'36″"},{name:"老爷庙墙上的抗战标语",location:"山西省大同市灵丘县赵北乡王城庄村",yearRaw:"抗日战争时期",content:"中华民族解放万岁",lngStr:"114°00'55.9″",latStr:"39°33'59.7″"}];
+let slogans=[];
+rawData.forEach((d,i)=>{let yearNum=null,disp=d.yearRaw;if(d.yearRaw.includes("1936"))yearNum=1936;else if(d.yearRaw.includes("1938"))yearNum=1938;else if(d.yearRaw.includes("1939"))yearNum=1939;else if(d.yearRaw.includes("1940"))yearNum=1940;else if(d.yearRaw.includes("1942"))yearNum=1942;else if(d.yearRaw.includes("1944"))yearNum=1944;else if(d.yearRaw.includes("1947"))yearNum=1947;else if(d.yearRaw.includes("1948"))yearNum=1948;else if(d.yearRaw.includes("抗日战争时期")){yearNum=1940;disp="抗日战争时期 (约1940)";}else yearNum=1940;let lng=dmsToDecimal(d.lngStr),lat=dmsToDecimal(d.latStr);if(d.lngStr.includes("113°37'94″")){lng=113.63;lat=37.14;}if(!lng||isNaN(lng))lng=112.5;if(!lat||isNaN(lat))lat=37.2;slogans.push({id:i+1,name:d.name,location:d.location,yearNum,yearDisplay:disp,content:d.content,lng,lat});});
+let map,markersLayer,extraGISLayer=null,currentMarkerMap=new Map();
+function filterSlogans(){let s=parseInt(document.getElementById('yearStart').value)||1936,e=parseInt(document.getElementById('yearEnd').value)||1949,k=document.getElementById('keywordSearch').value.trim().toLowerCase();return slogans.filter(i=>{if(i.yearNum<s||i.yearNum>e)return false;if(k){let a=i.name.toLowerCase().includes(k),b=i.content.toLowerCase().includes(k),c=i.location.toLowerCase().includes(k);if(!(a||b||c))return false;}return true;});}
+function escapeHtml(str){if(!str)return '';return str.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]||m));}
+function updateMapMarkers(arr){if(!markersLayer){markersLayer=L.layerGroup().addTo(map);}markersLayer.clearLayers();currentMarkerMap.clear();arr.forEach(s=>{let pop=`<div style="font-weight:800;color:#9b2c1d;">📢 ${escapeHtml(s.name)}</div><div>📅 ${s.yearDisplay} · 📍 ${escapeHtml(s.location)}</div><div>✍️ ${escapeHtml(s.content)}</div>`;let m=L.marker([s.lat,s.lng]).bindPopup(pop);m.addTo(markersLayer);currentMarkerMap.set(s.id,m);});}
+function renderUI(){let f=filterSlogans();let c=document.getElementById('sloganListContainer');document.getElementById('resultCount').innerText=`${f.length} 条标语`;if(f.length===0){c.innerHTML='<div class="empty-msg">无匹配标语</div>';}else{let html='';f.forEach(s=>{let sc=s.content.length>80?s.content.substring(0,78)+'…':s.content;html+=`<div class="slogan-card" data-id="${s.id}"><div class="slogan-title"><span><i class="fa-solid fa-scroll"></i> ${escapeHtml(s.name)}</span><span class="slogan-year-badge">${s.yearDisplay}</span></div><div class="slogan-content">${escapeHtml(sc)}</div><div class="slogan-location"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(s.location)}</div></div>`;});c.innerHTML=html;document.querySelectorAll('.slogan-card').forEach(card=>{let sid=parseInt(card.dataset.id);let t=f.find(s=>s.id===sid);if(t)card.addEventListener('click',()=>{map.setView([t.lat,t.lng],13);currentMarkerMap.get(sid)?.openPopup();});});}updateMapMarkers(f);}
+function initMap(){map=L.map('map',{attributionControl:false}).setView([37.2,112.4],7);L.tileLayer('https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',{maxZoom:18,minZoom:6}).addTo(map);let outline={"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"山西省"},"geometry":{"type":"Polygon","coordinates":[[[110.2,34.5],[114.7,34.6],[114.8,40.5],[110.1,40.6],[110.2,34.5]]]}}]};L.geoJSON(outline,{style:{color:"#b35f2e",weight:1.2,fillOpacity:0.03,dashArray:'5,6'},interactive:false}).addTo(map);markersLayer=L.layerGroup().addTo(map);}
+function setupGISControls(){document.getElementById('uploadGeoJsonBtn').addEventListener('click',()=>{let inp=document.createElement('input');inp.type='file';inp.accept='.geojson,.json';inp.onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=ev=>{try{let gj=JSON.parse(ev.target.result);if(extraGISLayer)map.removeLayer(extraGISLayer);extraGISLayer=L.geoJSON(gj,{style:{color:"#c9582c",weight:2,fillOpacity:0.25,fillColor:"#efb87e"},onEachFeature:(f,l)=>l.bindPopup(`<b>GIS图层</b><br>${f.properties?.name||'革命遗址'}`)}).addTo(map);alert("✅ GIS图层已叠加");}catch(err){alert("GeoJSON解析失败");}};r.readAsText(f);};inp.click();});document.getElementById('clearExtraLayerBtn').addEventListener('click',()=>{if(extraGISLayer){map.removeLayer(extraGISLayer);extraGISLayer=null;alert("已清除图层");}else alert("无额外图层");});}
+function bindFilters(){document.getElementById('applyFilterBtn').addEventListener('click',()=>renderUI());document.getElementById('resetFilterBtn').addEventListener('click',()=>{document.getElementById('yearStart').value='1936';document.getElementById('yearEnd').value='1949';document.getElementById('keywordSearch').value='';renderUI();});document.getElementById('yearStart').addEventListener('change',renderUI);document.getElementById('yearEnd').addEventListener('change',renderUI);document.getElementById('keywordSearch').addEventListener('input',renderUI);}
+window.addEventListener('resize',()=>map?.invalidateSize());
+initMap();setTimeout(()=>map.invalidateSize(),200);renderUI();setupGISControls();bindFilters();console.log("山西红色标语数据库已启动 | 不可移动革命文物版");
+</script>
+</body>
+</html>
